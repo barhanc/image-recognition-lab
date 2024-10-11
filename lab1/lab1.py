@@ -6,7 +6,7 @@ from PIL import Image
 from tinygrad import Tensor, Device
 
 # Make sure we are using GPU
-assert Device.DEFAULT == "CUDA"
+print(Device.DEFAULT)
 
 
 def show(img: Tensor, title=None):
@@ -52,7 +52,7 @@ show(img_maxpool, title="Max pooling")
 # Based on the results we choose average pooling as it makes the image less pixelated
 img = img_avgpool
 
-#  %%
+# %%
 # We now use gaussian bluring to get rid of noise and unimportant details
 
 
@@ -77,11 +77,13 @@ img = img.conv2d(filter_gauss(n).reshape(1, 1, n, n), stride=1, padding=n // 2)
 
 Kx = Tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype="float").reshape(1, 1, 3, 3)
 Ky = Tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype="float").reshape(1, 1, 3, 3)
+
 Ix = img.conv2d(Kx, stride=1, padding=1)
 Iy = img.conv2d(Ky, stride=1, padding=1)
+
 G_amp = Tensor.sqrt(Ix**2 + Iy**2)
 G_tan = Iy / Ix
 
-show(G_amp)
+show(G_amp, title="Gradient amplitude")
 
 # %%
