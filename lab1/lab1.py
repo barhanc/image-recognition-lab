@@ -129,12 +129,12 @@ show(G_amp, title="Gradient amplitude after non-max suppression")
 # The next thing to do is pass the gradient amplitudes through a simple thresholded relu function
 # and normalize the values so that they are either 1 (the pixel is part of some edge) or 0
 
-for threshold in (0.2, 0.3, 0.4, 0.5, 0.6):
-    show((G_amp - threshold).relu() > 0, title=f"Edges, threshold={threshold}")
+for threshold in (0.3, 0.4, 0.5, 0.6):
+    show((G_amp - threshold) > 0, title=f"Edges, threshold={threshold}")
 
 # Based on the results above we choose a threshold of 0.4
 threshold = 0.4
-G_amp_threshold = (G_amp - threshold).relu() > 0
+G_amp_threshold = (G_amp - threshold) > 0
 
 # %%
 # The last thing to do is to upscale the edges' channel and overlay it over the original image
@@ -149,5 +149,3 @@ b_channel = (img_og[:, 2, ...] - amplification * edges[:, 0, ...]).clip(0, 1)
 img_with_edges = Tensor.stack(r_channel, g_channel, b_channel, dim=1)
 
 show(img_with_edges)
-
-# %%
