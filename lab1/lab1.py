@@ -9,6 +9,7 @@ from tinygrad import Tensor, Device
 print(Device.DEFAULT)
 
 
+# Define simple helper function for easy results plotting
 def show(img: Tensor, title=None):
     plt.imshow(img[0, ...].permute(1, 2, 0).numpy() if isinstance(img, Tensor) else img, cmap="grey")
     plt.axis("off")
@@ -116,7 +117,7 @@ G_amp_flat = G_amp.flatten()
 idxs = Tensor.arange(W * H)
 mask = (G_amp_flat >= G_amp_flat[idxs + strides]) * (G_amp_flat >= G_amp_flat[idxs - strides])
 
-# Now we only need to take care of edge artifacts
+# Now we only need to take care of border artifacts
 mask = mask.reshape(1, 1, H, W)
 mask = mask[..., 1 : H - 1, 1 : W - 1]
 mask = mask.pad2d((1, 1, 1, 1))
@@ -126,7 +127,7 @@ G_amp *= mask
 show(G_amp, title="Gradient amplitude after non-max suppression")
 
 # %%
-# The next thing to do is pass the gradient amplitudes through a simple thresholded relu function
+# The next thing to do is to pass the gradient amplitudes through a simple thresholded relu function
 # and normalize the values so that they are either 1 (the pixel is part of some edge) or 0
 
 for threshold in (0.3, 0.4, 0.5, 0.6):
