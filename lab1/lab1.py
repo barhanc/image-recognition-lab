@@ -84,12 +84,15 @@ img = img.conv2d(filter_gauss(n).reshape(1, 1, n, n), stride=1, padding=n // 2)
 Kx = Tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype="float").reshape(1, 1, 3, 3)
 Ky = Tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype="float").reshape(1, 1, 3, 3)
 
-Ix = img.conv2d(Kx, stride=1, padding=1)
-Iy = img.conv2d(Ky, stride=1, padding=1)
+Gx = img.conv2d(Kx, stride=1, padding=1)
+Gy = img.conv2d(Ky, stride=1, padding=1)
 
-G_amp = Tensor.sqrt(Ix**2 + Iy**2)
-G_tan = Iy / Ix
+G_amp = Tensor.sqrt(Gx**2 + Gy**2)
+G_amp /= G_amp.max()
+G_tan = Gy / Gx  # tinygrad takes care of inf values (division by 0)
 
+show(Gx, title="Gradient x")
+show(Gy, title="Gradient y")
 show(G_amp, title="Gradient amplitude")
 
 # %%
@@ -103,15 +106,16 @@ from math import tan, pi
 tan22_5 = tan(1 * pi / 8)
 tan67_5 = tan(3 * pi / 8)
 
-mask_00 = ((G_tan < +tan22_5) * (G_tan > -tan22_5)).flatten()
-mask_90 = ((G_tan < -tan67_5) + (G_tan > +tan67_5)).flatten()
-mask_p45 = ((G_tan >= +tan22_5) * (G_tan <= +tan67_5)).flatten()
-mask_n45 = ((G_tan <= -tan22_5) * (G_tan >= -tan67_5)).flatten()
+mask_00 = ((G_tan <= +tan22_5) * (G_tan >= -tan22_5)).flatten()
+mask_90 = ((G_tan <= -tan67_5) + (G_tan >= +tan67_5)).flatten()
+mask_p45 = ((G_tan > +tan22_5) * (G_tan < +tan67_5)).flatten()
+mask_n45 = ((G_tan < -tan22_5) * (G_tan > -tan67_5)).flatten()
+
 
 # After computing masks, we compute strides which determine the location of neighbors according to
 # gradient direction. Note here that we use a flattened representation as it makes indexing easier.
 *_, H, W = G_amp.shape
-strides = 1 * mask_00 + W * mask_90 + (W + 1) * mask_p45 + (W - 1) * mask_n45
+strides = 1 * mask_00 + W * mask_90 + (W + 1) * mask_n45 + (W - 1) * mask_p45
 
 G_amp_flat = G_amp.flatten()
 idxs = Tensor.arange(W * H)
@@ -123,18 +127,17 @@ mask = mask[..., 1 : H - 1, 1 : W - 1]
 mask = mask.pad2d((1, 1, 1, 1))
 
 G_amp *= mask
-
 show(G_amp, title="Gradient amplitude after non-max suppression")
 
 # %%
 # The next thing to do is to pass the gradient amplitudes through a simple thresholded relu function
 # and normalize the values so that they are either 1 (the pixel is part of some edge) or 0
 
-for threshold in (0.3, 0.4, 0.5, 0.6):
+for threshold in (0.050, 0.075, 0.100, 0.125):
     show((G_amp - threshold) > 0, title=f"Edges, threshold={threshold}")
 
 # Based on the results above we choose a threshold of 0.4
-threshold = 0.4
+threshold = 0.1
 G_amp_threshold = (G_amp - threshold) > 0
 
 # %%
@@ -143,10 +146,12 @@ G_amp_threshold = (G_amp - threshold) > 0
 edges = G_amp_threshold.conv_transpose2d(Tensor.ones(1, 1, 3, 3), stride=4, output_padding=(3, 1))
 
 amplification = 0.8
-r_channel = (img_og[:, 0, ...] - amplification * edges[:, 0, ...]).clip(0, 1)
-g_channel = (img_og[:, 1, ...] + amplification * edges[:, 0, ...]).clip(0, 1)
+r_channel = (img_og[:, 0, ...] + amplification * edges[:, 0, ...]).clip(0, 1)
+g_channel = (img_og[:, 1, ...] - amplification * edges[:, 0, ...]).clip(0, 1)
 b_channel = (img_og[:, 2, ...] - amplification * edges[:, 0, ...]).clip(0, 1)
 
 img_with_edges = Tensor.stack(r_channel, g_channel, b_channel, dim=1)
 
 show(img_with_edges)
+
+# %%
