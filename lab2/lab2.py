@@ -1,14 +1,13 @@
-import numpy as np
-import matplotlib.pyplot as plt
-
 import torch
 import torch.utils
+import torch.nn as nn
 import torch.utils.data
 import torch.optim as optim
 
 from copy import deepcopy
 
 from tqdm import trange
+from torch import Tensor
 from torchvision import datasets
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
@@ -26,41 +25,11 @@ print(device)
 train_set = datasets.CIFAR10(root="./data", train=True, download=True, transform=ToTensor())
 train_set, valid_set = torch.utils.data.random_split(train_set, [0.9, 0.1])
 
-labels_map = {
-    0: "airplane",
-    1: "automobile",
-    2: "bird",
-    3: "cat",
-    4: "deer",
-    5: "dog",
-    6: "frog",
-    7: "horse",
-    8: "ship",
-    9: "truck",
-}
-
-# Plot some images with labels
-# figure = plt.figure(figsize=(8, 8))
-# cols, rows = 3, 3
-
-# for i in range(1, cols * rows + 1):
-#     sample_idx = torch.randint(len(train_set), size=(1,)).item()
-#     img, label = train_set[sample_idx]
-#     figure.add_subplot(rows, cols, i)
-#     plt.title(labels_map[label])
-#     plt.axis("off")
-#     plt.imshow(img.permute(1, 2, 0).squeeze(), cmap="gray")
-# plt.show()
-
-import torch.nn as nn
-import torch.nn.functional as F
-from torch import Tensor
-
 
 # Define model
 # TODO: Check how the initialization is handled in Pytorch
 class ConvGroup(nn.Module):
-    def __init__(self, channels_in: int, channels_out: int, pool=False):
+    def __init__(self, channels_in: int, channels_out: int, pool: bool = False):
         super().__init__()
 
         layers = [
@@ -79,7 +48,7 @@ class ConvGroup(nn.Module):
 
 
 class ResNet9(nn.Module):
-    def __init__(self, p=0.3):
+    def __init__(self, p: float = 0.3):
         super().__init__()
 
         self.conv_group1 = ConvGroup(3, 64, pool=False)
@@ -118,20 +87,17 @@ class ResNet9(nn.Module):
 
 def train_model(
     model: nn.Module,
-    optimizer,
+    optimizer: optim.Optimizer,
     criterion,
-    dataloaders: dict[str, DataLoader],
+    dataloaders: DataLoader,
     n_epochs: int,
-    verbose=False,
     device=DEVICE_GPU,
 ):
     model.to(device)
 
     best_acc, best_model_wts = 0.0, deepcopy(model.state_dict())
 
-    for epoch in (pbar := trange(1, n_epochs + 1)):
-        print(f"Epoch {epoch:4.0f}/{n_epochs}") if verbose else ...
-
+    for _ in (pbar := trange(1, n_epochs + 1)):
         for phase in ["train", "valid"]:
             if phase == "train":
                 # Set model to training mode
@@ -172,14 +138,11 @@ def train_model(
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
             epoch_acc = running_corrects.float() / len(dataloaders[phase].dataset)
 
-            print(f"{phase.upper()} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}") if verbose else ...
-
             # deep copy the model
             if phase == "valid" and epoch_acc > best_acc:
                 best_acc, best_model_wts = epoch_acc, deepcopy(model.state_dict())
 
         pbar.set_description(f"Best valid acc {best_acc*100:.2f}%")
-        print() if verbose else ...
 
     # load best model weights
     model.load_state_dict(best_model_wts)
@@ -218,7 +181,7 @@ def objective(trial: optuna.trial.BaseTrial):
     p = trial.suggest_float("p", 0.0, 1.0)
     lr = trial.suggest_float("lr", 1e-5, 1e-3)
     n_epochs = trial.suggest_int("n_epochs", 10, 60)
-    batch_size = trial.suggest_int("batch_size", 32, 512)
+    batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256, 512])
     weight_decay = trial.suggest_float("weight_decay", 1e-4, 1e-1)
 
     print(f"p = {p:.2f} | lr = {lr:.5f} | batch = {batch_size} | weight_decay = {weight_decay:.4f}")
