@@ -118,7 +118,6 @@ def train_model(
                 optimizer.zero_grad()
 
                 # forward
-                # track history if only in train
                 with torch.set_grad_enabled(phase == "train"):
                     # Get model outputs and calculate loss
 
