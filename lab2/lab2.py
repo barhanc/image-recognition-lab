@@ -27,7 +27,6 @@ train_set, valid_set = torch.utils.data.random_split(train_set, [0.9, 0.1])
 
 
 # Define model
-# TODO: Check how the initialization is handled in Pytorch
 class ConvGroup(nn.Module):
     def __init__(self, channels_in: int, channels_out: int, pool: bool = False):
         super().__init__()
@@ -47,7 +46,7 @@ class ConvGroup(nn.Module):
         return self.conv_group(X)
 
 
-class ResNet9(nn.Module):
+class ResNet(nn.Module):
     def __init__(self, p: float = 0.3):
         super().__init__()
 
@@ -192,7 +191,7 @@ def objective(trial: optuna.trial.BaseTrial):
     }
 
     # Define model, loss function and optimizer
-    model = ResNet9(p=p)
+    model = ResNet(p=p)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
