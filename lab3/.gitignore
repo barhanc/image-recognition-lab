@@ -1,4 +1,5 @@
 crawled_cakes/
 checkpoints/
 outputs/
-noise_out/
+out_noise_1/
+out_noise_2/
