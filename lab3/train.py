@@ -13,7 +13,7 @@ import torch.optim as optim
 
 from torch import Tensor
 
-from common import *
+from lab3.model import *
 
 # %%
 dirname = "./crawled_cakes"
