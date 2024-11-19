@@ -1,0 +1,7 @@
+path: /home/barto/Projects/image-recognition-lab/lab4/datasets/oiv7
+train: images/train 
+val: images/valid
+test: # test images (optional)
+
+names:
+    0: food
