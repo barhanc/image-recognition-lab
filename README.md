@@ -1,7 +1,3 @@
-## Image Recognition Methods course at AGH University
-
-![alt text](lab5/bike.gif)
-
 1. [Canny edge detector](lab1/)
 2. [Squeezing performance out of ResNet on CIFAR-10](lab2/)
 3. [Simple GAN trained on carrot cakes](lab3/)
