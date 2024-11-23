@@ -1,4 +1,4 @@
-# Image Recognition Methods course at AGH University
+## Image Recognition Methods course at AGH University
 
 ![alt text](lab5/bike.gif)
 
