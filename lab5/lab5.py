@@ -27,7 +27,7 @@ def show(X: Tensor, title: str = "", save_path: str | None = None):
     plt.scatter(X[:, 0], X[:, 1], marker=".", c="k", s=0.5)
     plt.title(title)
     if save_path is not None:
-        plt.savefig(save_path)
+        plt.savefig(save_path, bbox_inches="tight")
         plt.close()
     else:
         plt.show()
@@ -36,13 +36,14 @@ def show(X: Tensor, title: str = "", save_path: str | None = None):
 
 # %%
 # Load data
+# -----------------------------------------------
 X = np.loadtxt("./bicycle.txt", dtype=np.float32)
 
 # Plot a subset of data
+# -----------------------------------------------
 show(next(make_batch(X, batch_size=30_000)))
 
 # %%
-# -----------------------------------------------
 # Experiment with different variance schedules
 # -----------------------------------------------
 
@@ -91,7 +92,6 @@ os.makedirs("./chckpts", exist_ok=True)
 
 
 # %%
-# -------------------------------------
 # Define forward diffusion process
 # -------------------------------------
 
@@ -108,7 +108,6 @@ for t in (0, 5, 10, 50, 100, 250, 500, 999):
 
 
 # %%
-# ---------------------------
 # Define DDPM model
 # ---------------------------
 
@@ -178,7 +177,6 @@ class DDPM(nn.Module):
 
 
 # %%
-# ---------------------------
 # Define training parameters
 # ---------------------------
 
@@ -194,7 +192,6 @@ mvn = MVN(loc=torch.zeros(2), covariance_matrix=torch.eye(2))
 sample_size = 10_000
 x0 = mvn.sample((sample_size,))
 # %%
-# ---------------------------
 # Training loop
 # ---------------------------
 
@@ -235,3 +232,10 @@ for epoch in (pbar := trange(epochs)):
         )
 
 # %%
+# Plot loss history
+# -------------------------
+plt.plot(loss_hist, label="Train loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend(loc="best")
+plt.show()
