@@ -139,6 +139,7 @@ class LearnableSinusoidalEmbedding(nn.Module):
 
 
 class DDPM(nn.Module):
+
     def __init__(self, dim: int = 2, latent_dim: int = 128):
         super().__init__()
         self.dim = dim
@@ -158,8 +159,7 @@ class DDPM(nn.Module):
 
     @torch.no_grad()
     def sample(self, size: int, T: int, β: Tensor, x0: Tensor | None = None) -> Tensor:
-        assert x0 is None or x0.shape[0] == size
-        assert x0 is None or x0.shape[1] == self.dim
+        assert x0 is None or x0.shape == (size, self.dim)
         assert β.shape[0] >= T
 
         self.eval()
@@ -213,6 +213,7 @@ for epoch in (pbar := trange(epochs)):
 
         loss = criterion(ϵ_θ, ϵ)
         loss.backward()
+
         optimizer.step()
 
         running_loss += loss.item()
