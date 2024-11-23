@@ -1,6 +1,10 @@
-1. Canny edge detector
-2. Squeezing performance out of ResNet on CIFAR-10
-3. Simple GAN trained on carrot cakes
-4. Using pretrained networks for object detection - YOLO
-5. Simple DDPM on artificial 2-D probability distribution (the 'Bike' distribution)
-6. Basic ViT on CIFAR-10.
+# Image Recognition Methods course at AGH University
+
+![alt text](lab5/bike.gif)
+
+1. [Canny edge detector](lab1/)
+2. [Squeezing performance out of ResNet on CIFAR-10](lab2/)
+3. [Simple GAN trained on carrot cakes](lab3/)
+4. [Using pretrained networks for object detection - YOLO](lab4/)
+5. [Simple DDPM on artificial 2-D probability distribution (the 'Bike' distribution)](lab5/)
+6. [Basic ViT on CIFAR-10](lab6/)
