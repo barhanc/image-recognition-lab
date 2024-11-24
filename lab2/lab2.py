@@ -1,8 +1,10 @@
+import json
 import torch
 import torch.utils
 import torch.nn as nn
 import torch.utils.data
 import torch.optim as optim
+import optuna
 
 from copy import deepcopy
 
@@ -22,8 +24,9 @@ print(device)
 
 
 # Load CIFAR-10 dataset
-train_set = datasets.CIFAR10(root="./data", train=True, download=True, transform=ToTensor())
-train_set, valid_set = torch.utils.data.random_split(train_set, [0.9, 0.1])
+TRAIN_SET = datasets.CIFAR10(root="./data", train=True, download=True, transform=ToTensor())
+TRAIN_SET, VALID_SET = torch.utils.data.random_split(TRAIN_SET, [0.9, 0.1])
+TEST_SET = datasets.CIFAR10(root="./data", train=False, download=True, transform=ToTensor())
 
 
 # Define model
@@ -166,11 +169,6 @@ def eval_model(model: nn.Module, dataloader: DataLoader, device=DEVICE_GPU):
     return test_acc
 
 
-test_set = datasets.CIFAR10(root="./data", train=False, download=True, transform=ToTensor())
-
-import optuna
-
-
 def objective(trial: optuna.trial.BaseTrial):
     print(f"Trial: {trial.number}")
     print("-" * 10)
@@ -186,8 +184,8 @@ def objective(trial: optuna.trial.BaseTrial):
 
     # Define data loaders
     dataloaders = {
-        "train": DataLoader(train_set, batch_size=batch_size, shuffle=True),
-        "valid": DataLoader(valid_set, batch_size=batch_size, shuffle=True),
+        "train": DataLoader(TRAIN_SET, batch_size=batch_size, shuffle=True),
+        "valid": DataLoader(VALID_SET, batch_size=batch_size, shuffle=True),
     }
 
     # Define model, loss function and optimizer
@@ -199,15 +197,12 @@ def objective(trial: optuna.trial.BaseTrial):
     train_model(model, optimizer, criterion, dataloaders, n_epochs)
 
     # Evaluate model performance on test set
-    test_dataloader = DataLoader(test_set, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(TEST_SET, batch_size=batch_size, shuffle=True)
     return eval_model(model, test_dataloader)
 
 
 study = optuna.create_study(study_name="Hyperparameter search", direction="maximize")
 study.optimize(objective, n_trials=12)
-
-
-import json
 
 with open("best_hyperparams.json", "w") as file:
     json.dump(study.best_params, file)
