@@ -102,7 +102,7 @@ show(G_amp, title="Gradient amplitude")
 from math import tan, pi
 
 # First we compute masks for every direction (E-W, N-S, NE-SW, NW-SE). Here we also note that
-# directly computing angle by arctan is inefficient.
+# directly computing angle using arctan2 is inefficient.
 tan22_5 = tan(1 * pi / 8)
 tan67_5 = tan(3 * pi / 8)
 
@@ -124,7 +124,7 @@ mask = (G_amp_flat >= G_amp_flat[idxs + strides]) * (G_amp_flat >= G_amp_flat[id
 # Now we only need to take care of border artifacts
 mask = mask.reshape(1, 1, H, W)
 mask = mask[..., 1 : H - 1, 1 : W - 1]
-mask = mask.pad2d((1, 1, 1, 1))
+mask = mask.pad((1, 1, 1, 1))
 
 G_amp *= mask
 show(G_amp, title="Gradient amplitude after non-max suppression")
@@ -136,7 +136,7 @@ show(G_amp, title="Gradient amplitude after non-max suppression")
 for threshold in (0.050, 0.075, 0.100, 0.125):
     show((G_amp - threshold) > 0, title=f"Edges, threshold={threshold}")
 
-# Based on the results above we choose a threshold of 0.4
+# Based on the results above we choose a threshold of 0.1
 threshold = 0.1
 G_amp_threshold = (G_amp - threshold) > 0
 
