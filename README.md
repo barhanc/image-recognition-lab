@@ -3,4 +3,4 @@
 3. [Simple GAN trained on carrot cakes](lab3/)
 4. [Using pretrained networks for object detection - YOLO](lab4/)
 5. [Simple DDPM on artificial 2-D probability distribution (the 'Bike' distribution)](lab5/)
-6. [Basic ViT on CIFAR-10](lab6/)
+6. [Simple ViT on CIFAR-10 with attention rollout](lab6/)
