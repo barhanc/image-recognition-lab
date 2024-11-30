@@ -1,9 +1,10 @@
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from copy import deepcopy
-from random import randint
+from random import sample
 
 import torch
 import torch.nn as nn
@@ -60,30 +61,47 @@ LABELS_MAP = {
 # -----------------------------------------------
 
 
-def show(imgs: Tensor, labels: Tensor | None = None):
-    B = imgs.shape[0]
+def show(imgs: Tensor, labels: dict[str, list] | None = None, figsize: tuple[int, int] = (5, 5)):
+    imgs.unsqueeze(0) if len(imgs.shape) == 3 else ...
 
+    B = imgs.shape[0]
     ncols = int(np.sqrt(B))
     nrows = int(np.ceil(B / ncols))
-    fig = plt.figure(figsize=(5, 5))
+    fig = plt.figure(figsize=figsize)
 
     for b in range(B):
         fig.add_subplot(nrows, ncols, b + 1)
+        if labels is not None:
+            plt.title(f"True: {LABELS_MAP[labels['true'][b]]}\n" f"Pred: {LABELS_MAP[labels['pred'][b]]}")
         plt.axis("off")
         plt.imshow(imgs[b, ...].permute(1, 2, 0).cpu().numpy())
     plt.show()
     plt.close()
 
 
-def show_patches(patches: Tensor):
-    from math import sqrt
+def show_patches(patches: Tensor, image_size: tuple[int, int], figsize: tuple[int, int] = (5, 5)):
+    B = patches.shape[0]
+    image_height, image_width = image_size
+    patch_height, patch_width = patches.shape[3:]
 
-    fig = plt.figure(figsize=(5, 5))
+    n_patches_x = image_width // patch_width
+    n_patches_y = image_height // patch_height
 
-    for i in range(T := patches.shape[1]):
-        fig.add_subplot(int(sqrt(T)), int(sqrt(T)), i + 1)
-        plt.axis("off")
-        plt.imshow(patches[0, i, ...].permute(1, 2, 0).cpu().numpy(), cmap="gray")
+    ncols = int(np.sqrt(B))
+    nrows = int(np.ceil(B / ncols))
+    fig = plt.figure(figsize=figsize)
+    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig)
+
+    for col in range(ncols):
+        for row in range(nrows):
+            inner_gs = gridspec.GridSpecFromSubplotSpec(n_patches_y, n_patches_x, subplot_spec=outer_gs[row, col])
+
+            for i in range(n_patches_x):
+                for j in range(n_patches_y):
+                    ax = fig.add_subplot(inner_gs[i, j])
+                    ax.set_axis_off()
+                    ax.imshow(patches[row * ncols + col, i * n_patches_y + j, ...].permute(1, 2, 0).cpu().numpy())
+
     plt.show()
     plt.close()
 
@@ -114,13 +132,14 @@ class Patchify(nn.Module):
         return self.flatten(patches)
 
 
-# Check results on a random image from dataset
-img, _ = TRAIN_SET[0]
-img: Tensor = v2.Normalize(mean=-CIFAR_MEAN / CIFAR_STD, std=1 / CIFAR_STD)(img)
-img = img.unsqueeze(0)
+# Check results on random images
 
-show(img)
-show_patches(Patchify(image_size=(32, 32), patch_size=(4, 4), flat=False)(img))
+imgs, _ = zip(*sample(TRAIN_SET, k=9))
+imgs = torch.stack(imgs)
+imgs = v2.Normalize(mean=-CIFAR_MEAN / CIFAR_STD, std=1 / CIFAR_STD)(imgs)
+
+show(imgs, figsize=(8, 8))
+show_patches(Patchify(image_size=(32, 32), patch_size=(4, 4), flat=False)(imgs), image_size=(32, 32), figsize=(8, 8))
 
 
 # %%
@@ -133,7 +152,7 @@ class MultiheadSelfAttention(nn.Module):
         super().__init__()
 
         embed_dim = dim_head * n_heads
-        self.attn_output_weights = None
+        self.attn_output_weights: Tensor | None = None
 
         self.q = nn.Linear(dim, embed_dim, bias=False)
         self.k = nn.Linear(dim, embed_dim, bias=False)
@@ -229,8 +248,8 @@ class ViT(nn.Module):
 
 batch_size = 64
 dataloader = {
-    "train": DataLoader(TRAIN_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(device="cuda")),
-    "valid": DataLoader(VALID_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(device="cuda")),
+    "train": DataLoader(TRAIN_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE)),
+    "valid": DataLoader(VALID_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE)),
 }
 
 vit = ViT(
@@ -248,7 +267,7 @@ vit = ViT(
 
 epochs = 160
 criterion = F.cross_entropy
-optimizer = optim.AdamW(vit.parameters(), lr=3e-4)
+optimizer = optim.AdamW(vit.parameters(), lr=1e-3)
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1)
 
 # %%
@@ -289,7 +308,7 @@ for epoch in (pbar := trange(epochs)):
                     scheduler.step()
 
                 # Update running statistics
-                running_hits += torch.sum(torch.argmax(y_batch, 1) == t_batch).item()
+                running_hits += (torch.argmax(y_batch, 1) == t_batch).sum().item()
                 running_total += t_batch.size(0)
 
         # Compute epoch statistics
@@ -330,7 +349,7 @@ plt.close()
 # ---------------------------
 
 TEST_SET = datasets.CIFAR10(root="./data", train=False, download=True, transform=ToTensor)
-TEST_LOADER = DataLoader(TEST_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(device="cuda"))
+TEST_LOADER = DataLoader(TEST_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE))
 
 vit.eval()
 hits, total = 0, 0
@@ -340,12 +359,22 @@ with torch.no_grad():
         X_batch = X_batch.to(DEVICE)
         t_batch = t_batch.to(DEVICE)
         y_batch = vit(X_batch)
-        hits += torch.sum(torch.argmax(y_batch, 1) == t_batch).item()
+        hits += (torch.argmax(y_batch, 1) == t_batch).sum().item()
         total += t_batch.size(0)
 
 print(f"Test accuracy = {hits/total*100:.2f}%")
 
+test_imgs, test_labels = zip(*sample(TEST_SET, k=9))
+test_imgs, test_labels = torch.stack(test_imgs), torch.tensor(test_labels)
+
+pred_labels: Tensor = vit(test_imgs.to(DEVICE))
+pred_labels = pred_labels.detach().argmax(1).cpu()
+
+show(test_imgs, labels={"true": test_labels.tolist(), "pred": pred_labels.tolist()}, figsize=(10, 10))
+
+
 # %%
 # Visualize attention using attention rollout
 # --------------------------------------------
+
 ...
