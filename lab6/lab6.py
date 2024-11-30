@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from copy import deepcopy
+from random import randint
 
 import torch
 import torch.nn as nn
@@ -132,6 +133,7 @@ class MultiheadSelfAttention(nn.Module):
         super().__init__()
 
         embed_dim = dim_head * n_heads
+        self.attn_output_weights = None
 
         self.q = nn.Linear(dim, embed_dim, bias=False)
         self.k = nn.Linear(dim, embed_dim, bias=False)
@@ -141,7 +143,7 @@ class MultiheadSelfAttention(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         q, k, v = self.q(x), self.k(x), self.v(x)
-        x, _ = self.attn(q, k, v, need_weights=False)
+        x, self.attn_output_weights = self.attn(q, k, v)
         return self.proj(x)
 
 
@@ -149,13 +151,10 @@ class TransformerLayer(nn.Module):
     def __init__(self, dim: int, n_heads: int, dim_head: int, mlp_dim: int, dropout: float):
         super().__init__()
 
-        self.atten_blk = nn.Sequential(
-            nn.LayerNorm(dim),
-            MultiheadSelfAttention(dim, n_heads, dim_head, dropout),
-        )
-
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+        self.atten_blk = MultiheadSelfAttention(dim, n_heads, dim_head, dropout)
         self.dense_blk = nn.Sequential(
-            nn.LayerNorm(dim),
             nn.Linear(dim, mlp_dim),
             nn.GELU(),
             nn.Dropout(dropout),
@@ -164,8 +163,8 @@ class TransformerLayer(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = x + self.atten_blk(x)
-        x = x + self.dense_blk(x)
+        x = x + self.atten_blk(self.norm1(x))
+        x = x + self.dense_blk(self.norm2(x))
         return x
 
 
@@ -195,9 +194,8 @@ class ViT(nn.Module):
             nn.Linear(channels * patch_height * patch_width, dim),
         )
 
-        self.transformer = nn.Sequential(
-            *[TransformerLayer(dim, n_heads, dim_head, dim_mlp, dropout) for _ in range(depth)]
-        )
+        self.transformer_layers = [TransformerLayer(dim, n_heads, dim_head, dim_mlp, dropout) for _ in range(depth)]
+        self.transformer = nn.Sequential(*self.transformer_layers)
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.pos_embed = nn.Parameter(torch.randn(1, n_patches + 1, dim))
