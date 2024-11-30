@@ -1,4 +1,4 @@
-1. [Canny edge detector](lab1/)
+1. [Canny edge detector in tinygrad](lab1/)
 2. [Squeezing performance out of ResNet on CIFAR-10](lab2/)
 3. [Simple GAN trained on carrot cakes](lab3/)
 4. [Using pretrained networks for object detection - YOLO](lab4/)
