@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 from copy import deepcopy
-from random import sample
+from random import choices
 
 import torch
 import torch.nn as nn
@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from tqdm import trange
+from torchview import draw_graph
 from torch import Tensor
 from torchvision import datasets
 from torch.utils.data import DataLoader
@@ -72,7 +73,10 @@ def show(imgs: Tensor, labels: dict[str, list] | None = None, figsize: tuple[int
     for b in range(B):
         fig.add_subplot(nrows, ncols, b + 1)
         if labels is not None:
-            plt.title(f"True: {LABELS_MAP[labels['true'][b]]}\n" f"Pred: {LABELS_MAP[labels['pred'][b]]}")
+            plt.title(
+                f"True: {LABELS_MAP[labels['true'][b]]}\nPredicted: {LABELS_MAP[labels['pred'][b]]}",
+                c="g" if labels["true"][b] == labels["pred"][b] else "r",
+            )
         plt.axis("off")
         plt.imshow(imgs[b, ...].permute(1, 2, 0).cpu().numpy())
     plt.show()
@@ -111,6 +115,7 @@ def show_patches(patches: Tensor, image_size: tuple[int, int], figsize: tuple[in
 # ----------------------------------------------------
 
 
+# TODO: try to make this faster
 class Patchify(nn.Module):
     def __init__(self, image_size: tuple[int, int], patch_size: tuple[int, int], flat: bool):
         super().__init__()
@@ -134,7 +139,7 @@ class Patchify(nn.Module):
 
 # Check results on random images
 
-imgs, _ = zip(*sample(TRAIN_SET, k=9))
+imgs, _ = zip(*choices(TRAIN_SET, k=9))
 imgs = torch.stack(imgs)
 imgs = v2.Normalize(mean=-CIFAR_MEAN / CIFAR_STD, std=1 / CIFAR_STD)(imgs)
 
@@ -242,15 +247,7 @@ class ViT(nn.Module):
         return x
 
 
-# %%
-# Define training parameters
-# ---------------------------
-
-batch_size = 64
-dataloader = {
-    "train": DataLoader(TRAIN_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE)),
-    "valid": DataLoader(VALID_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE)),
-}
+# Plot keras-style architecture graph
 
 vit = ViT(
     image_size=(32, 32),
@@ -264,6 +261,20 @@ vit = ViT(
     depth=6,
     dropout=0.2,
 )
+
+model_graph = draw_graph(vit, input_size=(64, 3, 32, 32), depth=3, expand_nested=True, roll=True)
+model_graph.visual_graph
+
+
+# %%
+# Define training parameters
+# ---------------------------
+
+batch_size = 64
+dataloader = {
+    "train": DataLoader(TRAIN_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE)),
+    "valid": DataLoader(VALID_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE)),
+}
 
 epochs = 160
 criterion = F.cross_entropy
@@ -328,13 +339,14 @@ for epoch in (pbar := trange(epochs)):
         f"t.acc={acc_hist['train'][-1]*100:.2f}% | "
     )
 
-# Load best model
-vit.load_state_dict(best_vit_params)
-
 # Save best model
 torch.save({"model_state": best_vit_params, "acc_hist": acc_hist}, "./chk.pt")
 
+# %%
 # Plot accuracy history
+
+acc_hist = torch.load("./extra/chk.pt", weights_only=False)["acc_hist"]
+
 plt.plot(acc_hist["train"], label="Train")
 plt.plot(acc_hist["valid"], label="Valid")
 plt.xlabel("Epoch")
@@ -348,10 +360,17 @@ plt.close()
 # Evaluate model on test set
 # ---------------------------
 
-TEST_SET = datasets.CIFAR10(root="./data", train=False, download=True, transform=ToTensor)
+TEST_SET = datasets.CIFAR10(
+    root="./data",
+    train=False,
+    download=True,
+    transform=v2.Compose([ToTensor, v2.Normalize(CIFAR_MEAN, CIFAR_STD)]),
+)
 TEST_LOADER = DataLoader(TEST_SET, batch_size=batch_size, shuffle=True, generator=torch.Generator(DEVICE))
 
+vit.load_state_dict(torch.load("./extra/chk.pt", weights_only=False)["model_state"])
 vit.eval()
+
 hits, total = 0, 0
 
 with torch.no_grad():
@@ -364,17 +383,16 @@ with torch.no_grad():
 
 print(f"Test accuracy = {hits/total*100:.2f}%")
 
-test_imgs, test_labels = zip(*sample(TEST_SET, k=9))
+test_imgs, test_labels = zip(*choices(TEST_SET, k=9))
 test_imgs, test_labels = torch.stack(test_imgs), torch.tensor(test_labels)
 
 pred_labels: Tensor = vit(test_imgs.to(DEVICE))
 pred_labels = pred_labels.detach().argmax(1).cpu()
 
+test_imgs = v2.Normalize(mean=-CIFAR_MEAN / CIFAR_STD, std=1 / CIFAR_STD)(test_imgs)
 show(test_imgs, labels={"true": test_labels.tolist(), "pred": pred_labels.tolist()}, figsize=(10, 10))
 
 
 # %%
 # Visualize attention using attention rollout
 # --------------------------------------------
-
-...
