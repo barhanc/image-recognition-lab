@@ -143,8 +143,8 @@ imgs, _ = zip(*choices(TRAIN_SET, k=9))
 imgs = torch.stack(imgs)
 imgs = v2.Normalize(mean=-CIFAR_MEAN / CIFAR_STD, std=1 / CIFAR_STD)(imgs)
 
-show(imgs, figsize=(8, 8))
-show_patches(Patchify(image_size=(32, 32), patch_size=(4, 4), flat=False)(imgs), image_size=(32, 32), figsize=(8, 8))
+show(imgs, figsize=(10, 10))
+show_patches(Patchify(image_size=(32, 32), patch_size=(4, 4), flat=False)(imgs), image_size=(32, 32), figsize=(10, 10))
 
 
 # %%
@@ -383,6 +383,10 @@ with torch.no_grad():
 
 print(f"Test accuracy = {hits/total*100:.2f}%")
 
+# %%
+# Plot some predictions
+# ----------------------
+
 test_imgs, test_labels = zip(*choices(TEST_SET, k=9))
 test_imgs, test_labels = torch.stack(test_imgs), torch.tensor(test_labels)
 
@@ -396,3 +400,25 @@ show(test_imgs, labels={"true": test_labels.tolist(), "pred": pred_labels.tolist
 # %%
 # Visualize attention using attention rollout
 # --------------------------------------------
+
+
+def attention_rollout(As: list[Tensor], i: int = 0) -> Tensor:
+    assert 0 <= i < len(As)
+    R = As[i]
+    for A in As[i:]:
+        R = R @ (A + torch.eye(A.shape[1]))
+    return R
+
+
+As = [layer.atten_blk.attn_output_weights.detach() for layer in vit.transformer_layers]
+R = attention_rollout(As, 2)
+R = R[:, 0, 1:].reshape(-1, 1, 8, 8)
+R = F.interpolate(R, (32, 32), mode="bicubic")
+
+m, _ = R.min(0)
+M, _ = R.max(0)
+R = (R - m) / (M - m)
+R = R.repeat((1, 3, 1, 1), R)
+
+imgs_with_attn = R * test_imgs
+show(imgs_with_attn, figsize=(10, 10))
