@@ -411,7 +411,7 @@ def attention_rollout(As: list[Tensor], i: int = 0) -> Tensor:
 
 
 As = [layer.atten_blk.attn_output_weights.detach() for layer in vit.transformer_layers]
-R = attention_rollout(As, 2)
+R = attention_rollout(As)
 R = R[:, 0, 1:].reshape(-1, 1, 8, 8)
 R = F.interpolate(R, (32, 32), mode="bicubic")
 
@@ -422,3 +422,5 @@ R = R.repeat((1, 3, 1, 1), R)
 
 imgs_with_attn = R * test_imgs
 show(imgs_with_attn, figsize=(10, 10))
+
+# %%
